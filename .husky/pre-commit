@@ -1,0 +1,34 @@
+#!/bin/sh
+. "$(dirname "$0")/_/husky.sh"
+
+# Ensure Node is available in restricted Git hook PATH
+if ! command -v node >/dev/null 2>&1; then
+  # Load NVM if present
+  export NVM_DIR="$HOME/.nvm"
+  if [ -s "$NVM_DIR/nvm.sh" ]; then
+    . "$NVM_DIR/nvm.sh"
+  fi
+  # Add common Node install locations
+  [ -d "/usr/local/bin" ] && PATH="/usr/local/bin:$PATH"
+  [ -d "/opt/homebrew/bin" ] && PATH="/opt/homebrew/bin:$PATH"
+  # Use latest NVM Node bin if available
+  latest_nvm_node_bin=$(ls -1d "$HOME/.nvm/versions/node"/*/bin 2>/dev/null | tail -n1)
+  if [ -n "$latest_nvm_node_bin" ] && [ -d "$latest_nvm_node_bin" ]; then
+    PATH="$latest_nvm_node_bin:$PATH"
+  fi
+fi
+
+# Run formatting via workspaces when available; fallback to direct prettier
+if command -v yarn >/dev/null 2>&1; then
+  # Use workspace scripts so each package formats its own files
+  yarn format || true
+elif command -v npm >/dev/null 2>&1; then
+  npm run format || true
+elif [ -x "./node_modules/.bin/prettier" ]; then
+  # Fallback: try common globs at repo root; ignore unmatched patterns
+  ./node_modules/.bin/prettier --no-error-on-unmatched-pattern --write \
+    "src/**/*.ts" "test/**/*.ts" \
+    "backend/src/**/*.ts" "backend/test/**/*.ts" || true
+else
+  echo "[husky] prettier not found; skipping format"
+fi

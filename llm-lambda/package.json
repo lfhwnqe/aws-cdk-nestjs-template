@@ -1,0 +1,13 @@
+{
+  "name": "llm-lambda",
+  "version": "1.0.0",
+  "private": true,
+  "description": "LLM Lambda function package",
+  "main": "index.js",
+  "scripts": {
+    "build": "echo 'No build configured yet'",
+    "test": "node --version > /dev/null && echo 'No tests yet'"
+  },
+  "dependencies": {},
+  "devDependencies": {}
+}

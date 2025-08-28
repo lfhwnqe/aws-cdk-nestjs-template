@@ -1,0 +1,39 @@
+{
+  "name": "trade-manage-backend-monorepo",
+  "version": "1.0.0",
+  "description": "Trade Management Backend monorepo (Yarn Workspaces)",
+  "author": "Your Name",
+  "private": true,
+  "license": "MIT",
+  "workspaces": [
+    "backend",
+    "llm-lambda"
+  ],
+  "scripts": {
+    "clean": "./scripts/clean.sh",
+    "format": "yarn workspaces run format",
+    "lint": "yarn workspaces run lint",
+    "test": "yarn workspaces run test",
+    "backend:build": "yarn workspace backend build",
+    "backend:start:dev": "yarn workspace backend start:dev",
+    "backend:build:lambda": "yarn workspace backend build:lambda",
+    "cdk:deploy:dev": "cd infrastructure && npm run cdk deploy -- --context environment=dev",
+    "cdk:deploy:prod": "cd infrastructure && npm run cdk deploy -- --context environment=prod",
+    "cdk:destroy:dev": "cd infrastructure && npm run cdk destroy -- --context environment=dev",
+    "cdk:destroy:prod": "cd infrastructure && npm run cdk destroy -- --context environment=prod",
+    "cdk:diff:dev": "cd infrastructure && npm run cdk diff -- --context environment=dev",
+    "cdk:diff:prod": "cd infrastructure && npm run cdk diff -- --context environment=prod",
+    "build:lambda": "./scripts/build-lambda.sh",
+    "deploy:lambda:dev": "npm run backend:build:lambda && npm run cdk:deploy:dev",
+    "deploy:lambda:prod": "npm run backend:build:lambda && npm run cdk:deploy:prod",
+    "destroy:lambda:dev": "npm run cdk:destroy:dev",
+    "destroy:lambda:prod": "npm run cdk:destroy:prod",
+    "deploy:dev": "npm run backend:build:lambda && npm run cdk:deploy:dev",
+    "deploy:prod": "npm run backend:build:lambda && npm run cdk:deploy:prod",
+    "prepare": "if [ -d .git ]; then husky install; fi"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "husky": "^8.0.0"
+  }
+}

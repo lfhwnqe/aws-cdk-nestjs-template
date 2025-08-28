@@ -1,0 +1,10 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "outDir": "./lambda-temp-build",
+    "sourceMap": false,
+    "declaration": false,
+    "noEmit": true
+  },
+  "exclude": ["node_modules", "test", "dist", "lambda-package", "lambda-temp-build", "**/*spec.ts"]
+}

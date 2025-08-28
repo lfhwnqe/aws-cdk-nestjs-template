@@ -147,9 +147,9 @@ npm run deploy:prod
     - 可将其加入 externals，并在 `build-lambda.sh` 中明确复制相应目录到 `lambda-package/node_modules`。否则会在运行时报模块缺失。
 
 - 新增依赖的建议流程：
-  1) 安装依赖并在代码中正常 `import`。
-  2) 运行 `npm run build:lambda`，检查是否能成功打包。
-  3) 如出现“模块未找到/运行时报资源缺失”，判断是否需要：
+  1. 安装依赖并在代码中正常 `import`。
+  2. 运行 `npm run build:lambda`，检查是否能成功打包。
+  3. 如出现“模块未找到/运行时报资源缺失”，判断是否需要：
      - 将依赖 external 并在脚本中复制资源目录；或
      - 去掉 external，让 webpack 将依赖打进 bundle；或
      - 调整 IgnorePlugin/alias，允许打包 Nest 可选模块。
@@ -158,10 +158,10 @@ npm run deploy:prod
   - 若在 Lambda 环境禁用 Swagger，可移除 `swagger-ui-dist` 的 external 与复制步骤，包体可继续减小。
   - 可切换到 esbuild 以进一步加速打包（需引入构建依赖并调整配置）。
 
-
 ### Destroy Stack
 
 #### Development Environment
+
 ```bash
 # Destroy development stack
 npm run destroy:dev
@@ -170,6 +170,7 @@ npm run destroy:dev
 ```
 
 #### Production Environment
+
 ```bash
 # Destroy production stack
 npm run destroy:prod
@@ -180,6 +181,7 @@ npm run destroy:prod
 ## 📚 API Documentation
 
 Once the server is running, visit:
+
 - **Swagger UI**: `http://localhost:3000/api/v1/docs`
 - **API Base URL**: `http://localhost:3000/api/v1`
 
@@ -235,16 +237,19 @@ npm run format
 ## 🏗️ AWS Services
 
 ### DynamoDB Tables
+
 - **Users Table**: User profiles and authentication data
 - **Transactions Table**: Trading records and history
 - **Files Table**: File metadata and references
 
 ### S3 Buckets
+
 - **File Storage**: Secure file storage with presigned URLs
 - **Versioning**: Enabled for data protection
 - **Lifecycle Rules**: Automatic cleanup of incomplete uploads
 
 ### Cognito
+
 - **User Pool**: User authentication and management
 - **JWT Tokens**: Secure API access
 - **Password Policies**: Configurable security requirements
@@ -261,6 +266,7 @@ npm run format
 ## 📁 Environment Variables
 
 ### Required Variables
+
 ```bash
 # Application
 NODE_ENV=development|production
@@ -295,6 +301,7 @@ JWT_EXPIRES_IN=24h
 ### Common Issues
 
 1. **AWS Credentials Not Found**
+
    ```bash
    aws configure
    # or set environment variables
@@ -303,12 +310,14 @@ JWT_EXPIRES_IN=24h
    ```
 
 2. **CDK Bootstrap Required**
+
    ```bash
    cd infrastructure
    cdk bootstrap
    ```
 
 3. **Port Already in Use**
+
    ```bash
    # Change PORT in .env file or kill existing process
    lsof -ti:3000 | xargs kill -9
@@ -334,6 +343,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## 🆘 Support
 
 For support and questions:
+
 - Create an issue in the repository
 - Check the troubleshooting section
 - Review AWS documentation for service-specific issues
@@ -351,3 +361,9 @@ For support and questions:
 ---
 
 **Built with ❤️ using NestJS and AWS**
+
+# TODO
+
+- 增加mastra ai框架接入
+- 解决mastra ai可以带权限调用nestjs的接口
+- cdk增加温服务保持后端服务的warn状态

@@ -101,7 +101,7 @@ npm run start:dev
 ### Development Environment
 
 ```bash
-# Deploy to development
+# Deploy to development（脚本中已写死 Stack 名：linuo-aws-template-dev）
 npm run deploy:dev
 # or
 ./scripts/deploy.sh -e dev
@@ -110,11 +110,22 @@ npm run deploy:dev
 ### Production Environment
 
 ```bash
-# Deploy to production
+# Deploy to production（脚本中已写死 Stack 名：linuo-aws-template-prod）
 npm run deploy:prod
 # or
 ./scripts/deploy.sh -e prod
 ```
+
+### 模板项目名（PROJECT_NAME）
+
+- 作用：用于 CDK 资源与 Stack 的命名前缀（S3、DynamoDB、API Gateway、Lambda、StackName）。
+- 默认值：`linuo-aws-template`（在 `infrastructure/bin/app.ts` 内部作为默认值）。
+- 使用示例（注意：仓库内置的 deploy 脚本已固定 Stack 名，如需部署自定义项目名对应的 Stack，可手动执行 cdk 命令）：
+  - 查看模板：`cd infrastructure && PROJECT_NAME=my-awesome-app npm run cdk synth -- --context environment=dev`
+  - 直接部署：`cd infrastructure && PROJECT_NAME=my-awesome-app npm run cdk deploy my-awesome-app-dev -- --context environment=dev`
+- 注意：
+  - S3 Bucket 名称按要求会使用小写化的项目名（其他资源原样使用）。
+  - 仓库内置脚本 `deploy:dev/prod` 固定部署 `linuo-aws-template-dev/prod`，如需固定为你自己的前缀，请修改 `package.json` 中 `cdk:deploy:*` 的 stack 参数。
 
 ### Lambda 打包与维护指南
 
@@ -271,7 +282,7 @@ npm run format
 # Application
 NODE_ENV=development|production
 PORT=3000
-APP_NAME=trade-manage-backend
+APP_NAME=<projectName>-backend  # 由 CDK 注入，形如 linuo-aws-template-backend
 
 # AWS Configuration
 AWS_REGION=ap-southeast-1
@@ -289,7 +300,7 @@ COGNITO_REGION=ap-southeast-1
 
 # DynamoDB
 DYNAMODB_REGION=ap-southeast-1
-DYNAMODB_TABLE_PREFIX=trade-manage-dev
+DYNAMODB_TABLE_PREFIX=<projectName>-<env>  # 由 CDK 注入，形如 linuo-aws-template-dev
 
 # JWT
 JWT_SECRET=your-jwt-secret

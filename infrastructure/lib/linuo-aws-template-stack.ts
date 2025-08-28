@@ -6,14 +6,17 @@ import * as iam from 'aws-cdk-lib/aws-iam';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as apigateway from 'aws-cdk-lib/aws-apigateway';
 import { Construct } from 'constructs';
+import * as events from 'aws-cdk-lib/aws-events';
+import * as targets from 'aws-cdk-lib/aws-events-targets';
 import * as path from 'path';
 
-export interface TradeManageStackProps extends cdk.StackProps {
+export interface LinuoAwsTemplateStackProps extends cdk.StackProps {
   environment: string;
   stackName: string;
+  projectName: string;
 }
 
-export class TradeManageStack extends cdk.Stack {
+export class LinuoAwsTemplateStack extends cdk.Stack {
   public readonly s3Bucket: s3.Bucket;
   public readonly importExportBucket: s3.Bucket;
   public readonly userPool: cognito.UserPool;
@@ -28,14 +31,16 @@ export class TradeManageStack extends cdk.Stack {
   public readonly apiLambda: lambda.Function;
   public readonly api: apigateway.RestApi;
 
-  constructor(scope: Construct, id: string, props: TradeManageStackProps) {
+  constructor(scope: Construct, id: string, props: LinuoAwsTemplateStackProps) {
     super(scope, id, props);
 
-    const { environment } = props;
+    const { environment, projectName } = props;
+    const baseName = projectName;
+    const baseNameLower = projectName.toLowerCase();
 
     // S3 Bucket for file storage
     this.s3Bucket = new s3.Bucket(this, 'FilesBucket', {
-      bucketName: `trade-manage-files-${environment}-${this.region}`,
+      bucketName: `${baseNameLower}-files-${environment}-${this.region}`,
       versioned: true,
       encryption: s3.BucketEncryption.S3_MANAGED,
       blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
@@ -62,7 +67,7 @@ export class TradeManageStack extends cdk.Stack {
 
     // S3 Bucket for import/export temporary files
     this.importExportBucket = new s3.Bucket(this, 'ImportExportBucket', {
-      bucketName: `trade-manage-import-export-${environment}-${this.region}`,
+      bucketName: `${baseNameLower}-import-export-${environment}-${this.region}`,
       // Temporary files: no versioning to avoid keeping stale versions
       versioned: false,
       encryption: s3.BucketEncryption.S3_MANAGED,
@@ -91,7 +96,7 @@ export class TradeManageStack extends cdk.Stack {
 
     // Cognito User Pool
     this.userPool = new cognito.UserPool(this, 'UserPool', {
-      userPoolName: `trade-manage-users-${environment}`,
+      userPoolName: `${baseName}-users-${environment}`,
       selfSignUpEnabled: true,
       signInAliases: {
         email: true,
@@ -128,7 +133,7 @@ export class TradeManageStack extends cdk.Stack {
     // Cognito User Pool Client
     this.userPoolClient = new cognito.UserPoolClient(this, 'UserPoolClient', {
       userPool: this.userPool,
-      userPoolClientName: `trade-manage-client-${environment}`,
+      userPoolClientName: `${baseName}-client-${environment}`,
       generateSecret: false,
       authFlows: {
         adminUserPassword: true,
@@ -145,7 +150,7 @@ export class TradeManageStack extends cdk.Stack {
 
     // DynamoDB Tables
     this.usersTable = new dynamodb.Table(this, 'UsersTable', {
-      tableName: `trade-manage-${environment}-users`,
+      tableName: `${baseName}-${environment}-users`,
       partitionKey: {
         name: 'userId',
         type: dynamodb.AttributeType.STRING,
@@ -166,7 +171,7 @@ export class TradeManageStack extends cdk.Stack {
     });
 
     this.tradesTable = new dynamodb.Table(this, 'TradesTable', {
-      tableName: `trade-manage-${environment}-trades`,
+      tableName: `${baseName}-${environment}-trades`,
       partitionKey: {
         name: 'tradeId',
         type: dynamodb.AttributeType.STRING,
@@ -195,7 +200,7 @@ export class TradeManageStack extends cdk.Stack {
     });
 
     this.filesTable = new dynamodb.Table(this, 'FilesTable', {
-      tableName: `trade-manage-${environment}-files`,
+      tableName: `${baseName}-${environment}-files`,
       partitionKey: {
         name: 'fileId',
         type: dynamodb.AttributeType.STRING,
@@ -221,7 +226,7 @@ export class TradeManageStack extends cdk.Stack {
 
     // Customers Table - 客户信息表
     this.customersTable = new dynamodb.Table(this, 'CustomersTable', {
-      tableName: `trade-manage-${environment}-customers`,
+      tableName: `${baseName}-${environment}-customers`,
       partitionKey: {
         name: 'customerId',
         type: dynamodb.AttributeType.STRING,
@@ -252,7 +257,7 @@ export class TradeManageStack extends cdk.Stack {
 
     // Products Table - 产品信息表
     this.productsTable = new dynamodb.Table(this, 'ProductsTable', {
-      tableName: `trade-manage-${environment}-products`,
+      tableName: `${baseName}-${environment}-products`,
       partitionKey: {
         name: 'productId',
         type: dynamodb.AttributeType.STRING,
@@ -291,7 +296,7 @@ export class TradeManageStack extends cdk.Stack {
 
     // Customer Product Transactions Table - 客户产品购买记录表
     this.customerProductTransactionsTable = new dynamodb.Table(this, 'CustomerProductTransactionsTable', {
-      tableName: `trade-manage-${environment}-customer-product-transactions`,
+      tableName: `${baseName}-${environment}-customer-product-transactions`,
       partitionKey: {
         name: 'transactionId',
         type: dynamodb.AttributeType.STRING,
@@ -347,7 +352,7 @@ export class TradeManageStack extends cdk.Stack {
 
     // Lambda Function for API
     this.apiLambda = new lambda.Function(this, 'ApiLambda', {
-      functionName: `trade-manage-api-${environment}`,
+      functionName: `${baseName}-api-${environment}`,
       runtime: lambda.Runtime.NODEJS_22_X,
       handler: 'lambda.handler',
       code: lambda.Code.fromAsset(path.join(__dirname, '../../lambda-package')),
@@ -358,7 +363,7 @@ export class TradeManageStack extends cdk.Stack {
         NODE_ENV: environment === 'prod' ? 'production' : 'development',
         SWAGGER_ENABLED: environment === 'prod' ? 'false' : 'true',
         PORT: '3000',
-        APP_NAME: 'trade-manage-backend',
+        APP_NAME: `${baseName}-backend`,
 
         // AWS Configuration (AWS_REGION is automatically set by Lambda runtime)
         APP_AWS_REGION: this.region,
@@ -375,7 +380,7 @@ export class TradeManageStack extends cdk.Stack {
 
         // AWS DynamoDB Configuration
         DYNAMODB_REGION: this.region,
-        DYNAMODB_TABLE_PREFIX: `trade-manage-${environment}`,
+        DYNAMODB_TABLE_PREFIX: `${baseName}-${environment}`,
 
         // JWT Configuration
         JWT_SECRET: environment === 'prod' ? 'CHANGE_THIS_IN_PRODUCTION' : 'dev-secret-key',
@@ -428,8 +433,8 @@ export class TradeManageStack extends cdk.Stack {
 
     // API Gateway
     this.api = new apigateway.RestApi(this, 'Api', {
-      restApiName: `trade-manage-api-${environment}`,
-      description: `Trade Management API - ${environment}`,
+      restApiName: `${baseName}-api-${environment}`,
+      description: `${baseName} API - ${environment}`,
       deployOptions: {
         stageName: environment,
         description: `${environment} stage for Trade Management API`,
@@ -463,7 +468,7 @@ export class TradeManageStack extends cdk.Stack {
       `# Application Configuration`,
       `NODE_ENV=${environment === 'prod' ? 'production' : 'development'}`,
       `PORT=3000`,
-      `APP_NAME=trade-manage-backend`,
+      `APP_NAME=${baseName}-backend`,
       ``,
       `# AWS Configuration`,
       `AWS_REGION=${this.region}`,
@@ -480,7 +485,7 @@ export class TradeManageStack extends cdk.Stack {
       ``,
       `# AWS DynamoDB Configuration`,
       `DYNAMODB_REGION=${this.region}`,
-      `DYNAMODB_TABLE_PREFIX=trade-manage-${environment}`,
+      `DYNAMODB_TABLE_PREFIX=${baseName}-${environment}`,
       ``,
       `# JWT Configuration`,
       `JWT_SECRET=${environment === 'prod' ? 'CHANGE_THIS_IN_PRODUCTION' : 'dev-secret-key'}`,
@@ -497,8 +502,8 @@ export class TradeManageStack extends cdk.Stack {
       `# API Configuration`,
       `API_PREFIX=api/v1`,
       `SWAGGER_ENABLED=${environment === 'prod' ? 'false' : 'true'}`,
-      `SWAGGER_TITLE=Trade Management API`,
-      `SWAGGER_DESCRIPTION=API for Trade Management System`,
+      `SWAGGER_TITLE=${baseName} API`,
+      `SWAGGER_DESCRIPTION=${baseName} API for Trade Management System`,
       `SWAGGER_VERSION=1.0.0`,
       ``,
       `# Deployment Information (for reference)`,
@@ -530,5 +535,19 @@ NOTES:
 `,
       description: 'Ready-to-use .env file content - copy everything between the === markers',
     });
+
+    // EventBridge rule to ping health endpoint every 5 minutes
+    const healthCheckRule = new events.Rule(this, 'HealthCheckScheduleRule', {
+      schedule: events.Schedule.rate(cdk.Duration.minutes(5)),
+      description: 'Invoke API Gateway health endpoint every 5 minutes',
+    });
+
+    healthCheckRule.addTarget(
+      new targets.ApiGateway(this.api, {
+        stage: environment,
+        path: '/api/v1/health',
+        method: 'GET',
+      }),
+    );
   }
 }

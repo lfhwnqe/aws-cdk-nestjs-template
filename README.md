@@ -18,6 +18,14 @@ This template accelerates building serverless applications with NestJS and the A
 - **Testing & Linting** setup with Jest and ESLint
 - **Scripts** for development, building, and deploying
 
+### Feature Highlights
+
+- Import/Export module (S3-based): Generate presigned URLs for uploads, export data to S3 and return short-lived download links (CSV/Excel flows supported by service layer).
+- Standard CRUD scaffolding: Example feature modules (`customers`, `products`) with validated DTOs, pagination, and Swagger docs.
+- Keep-warm via CDK: EventBridge periodically calls the health endpoint to reduce Lambda cold starts in deployed environments.
+- Basic auth flows: User registration, email verification, login, profile, and password change backed by Amazon Cognito + JWT for API protection.
+- DynamoDB integration: Pay-per-request tables with practical GSIs; table names and regions are wired via environment variables and CDK outputs.
+
 ## Project Structure
 
 ```
@@ -67,6 +75,18 @@ npm run deploy:prod
 ```
 
 More details and troubleshooting tips are available in the [Chinese guide](docs/项目模板使用指南.zh-CN.md).
+
+## Import/Export (S3) Quickstart
+
+- Get a presigned URL to upload an import file:
+  - POST `{apiBase}/import-export/imports/presigned-url` with `{ fileName, contentType, type: "customer|product|transaction" }`.
+  - Upload the file to the returned `uploadUrl` using HTTP PUT.
+- Export data as Excel and fetch a short-lived download URL:
+  - GET `{apiBase}/customers/export` or `{apiBase}/products/export` (JWT required). Response includes `downloadUrl` and `expireAt`.
+- Import from S3 key (server-side):
+  - POST `{apiBase}/customers/imports/s3` or `{apiBase}/products/imports/s3` with `{ key }`.
+
+Environment variables are populated by CDK stack outputs (e.g., `S3_IMPORT_EXPORT_BUCKET_NAME`). See the Chinese guide for details.
 
 ## Contributing
 

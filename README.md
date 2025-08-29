@@ -375,11 +375,10 @@ For support and questions:
 
 # TODO
 
-- 删除多余script
-- 增加模板使用指引
 - 增加mastra ai框架接入
 - 解决mastra ai可以带权限调用nestjs的接口
 
 # ChangeLog
 
+- 增加模板使用指引
 - cdk增加温服务保持后端服务的warn状态

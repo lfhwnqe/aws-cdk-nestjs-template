@@ -10,11 +10,8 @@ import { JwtModule } from '@nestjs/jwt';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
-import { FileModule } from './modules/file/file.module';
 import { CustomerModule } from './modules/customer/customer.module';
 import { ProductModule } from './modules/product/product.module';
-import { TransactionModule } from './modules/transaction/transaction.module';
-import { StatsModule } from './modules/stats/stats.module';
 import { DatabaseModule } from './database/database.module';
 import { SharedModule } from './shared/shared.module';
 import { ImportExportModule } from './modules/import-export/import-export.module';
@@ -43,11 +40,8 @@ import configuration from './config/configuration';
     SharedModule,
     ImportExportModule,
     AuthModule,
-    FileModule,
     CustomerModule,
     ProductModule,
-    TransactionModule,
-    StatsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

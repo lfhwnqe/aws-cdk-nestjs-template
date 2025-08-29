@@ -32,7 +32,7 @@ This template accelerates building serverless applications with NestJS and the A
 
 ### Prerequisites
 
-- Node.js 18+
+- Node.js 20+
 - npm or Yarn
 - AWS CLI & credentials
 - AWS CDK v2 (`npm i -g aws-cdk`)

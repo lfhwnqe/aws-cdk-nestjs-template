@@ -14,7 +14,6 @@ export default () => ({
 
   // S3 Configuration
   s3: {
-    bucketName: process.env.S3_BUCKET_NAME,
     importExportBucketName: process.env.S3_IMPORT_EXPORT_BUCKET_NAME,
     region: process.env.S3_REGION || 'ap-southeast-1',
   },
@@ -42,13 +41,8 @@ export default () => ({
   database: {
     tables: {
       users: process.env.DB_TABLE_USERS || 'users',
-      trades: process.env.DB_TABLE_TRADES || 'trades',
-      files: process.env.DB_TABLE_FILES || 'files',
       customers: process.env.DB_TABLE_CUSTOMERS || 'customers',
       products: process.env.DB_TABLE_PRODUCTS || 'products',
-      customerProductTransactions:
-        process.env.DB_TABLE_CUSTOMER_PRODUCT_TRANSACTIONS ||
-        'customer-product-transactions',
     },
   },
 

@@ -17,17 +17,13 @@ export interface LinuoAwsTemplateStackProps extends cdk.StackProps {
 }
 
 export class LinuoAwsTemplateStack extends cdk.Stack {
-  public readonly s3Bucket: s3.Bucket;
   public readonly importExportBucket: s3.Bucket;
   public readonly userPool: cognito.UserPool;
   public readonly userPoolClient: cognito.UserPoolClient;
   public readonly usersTable: dynamodb.Table;
-  public readonly tradesTable: dynamodb.Table;
-  public readonly filesTable: dynamodb.Table;
   // New tables for financial product management
   public readonly customersTable: dynamodb.Table;
   public readonly productsTable: dynamodb.Table;
-  public readonly customerProductTransactionsTable: dynamodb.Table;
   public readonly apiLambda: lambda.Function;
   public readonly api: apigateway.RestApi;
 
@@ -37,33 +33,6 @@ export class LinuoAwsTemplateStack extends cdk.Stack {
     const { environment, projectName } = props;
     const baseName = projectName;
     const baseNameLower = projectName.toLowerCase();
-
-    // S3 Bucket for file storage
-    this.s3Bucket = new s3.Bucket(this, 'FilesBucket', {
-      bucketName: `${baseNameLower}-files-${environment}-${this.region}`,
-      versioned: true,
-      encryption: s3.BucketEncryption.S3_MANAGED,
-      blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
-      cors: [
-        {
-          allowedMethods: [
-            s3.HttpMethods.GET,
-            s3.HttpMethods.POST,
-            s3.HttpMethods.PUT,
-            s3.HttpMethods.DELETE,
-          ],
-          allowedOrigins: ['*'],
-          allowedHeaders: ['*'],
-        },
-      ],
-      lifecycleRules: [
-        {
-          id: 'DeleteIncompleteMultipartUploads',
-          abortIncompleteMultipartUploadAfter: cdk.Duration.days(7),
-        },
-      ],
-      removalPolicy: environment === 'prod' ? cdk.RemovalPolicy.RETAIN : cdk.RemovalPolicy.DESTROY,
-    });
 
     // S3 Bucket for import/export temporary files
     this.importExportBucket = new s3.Bucket(this, 'ImportExportBucket', {
@@ -170,59 +139,7 @@ export class LinuoAwsTemplateStack extends cdk.Stack {
       },
     });
 
-    this.tradesTable = new dynamodb.Table(this, 'TradesTable', {
-      tableName: `${baseName}-${environment}-trades`,
-      partitionKey: {
-        name: 'tradeId',
-        type: dynamodb.AttributeType.STRING,
-      },
-      sortKey: {
-        name: 'createdAt',
-        type: dynamodb.AttributeType.STRING,
-      },
-      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
-      encryption: dynamodb.TableEncryption.AWS_MANAGED,
-      pointInTimeRecovery: environment === 'prod',
-      removalPolicy: environment === 'prod' ? cdk.RemovalPolicy.RETAIN : cdk.RemovalPolicy.DESTROY,
-    });
-
-    // Add GSI for user trades lookup
-    this.tradesTable.addGlobalSecondaryIndex({
-      indexName: 'UserTradesIndex',
-      partitionKey: {
-        name: 'userId',
-        type: dynamodb.AttributeType.STRING,
-      },
-      sortKey: {
-        name: 'createdAt',
-        type: dynamodb.AttributeType.STRING,
-      },
-    });
-
-    this.filesTable = new dynamodb.Table(this, 'FilesTable', {
-      tableName: `${baseName}-${environment}-files`,
-      partitionKey: {
-        name: 'fileId',
-        type: dynamodb.AttributeType.STRING,
-      },
-      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
-      encryption: dynamodb.TableEncryption.AWS_MANAGED,
-      pointInTimeRecovery: environment === 'prod',
-      removalPolicy: environment === 'prod' ? cdk.RemovalPolicy.RETAIN : cdk.RemovalPolicy.DESTROY,
-    });
-
-    // Add GSI for user files lookup
-    this.filesTable.addGlobalSecondaryIndex({
-      indexName: 'UserFilesIndex',
-      partitionKey: {
-        name: 'userId',
-        type: dynamodb.AttributeType.STRING,
-      },
-      sortKey: {
-        name: 'uploadedAt',
-        type: dynamodb.AttributeType.STRING,
-      },
-    });
+    // Removed legacy Trades/Files tables per module cleanup
 
     // Customers Table - 客户信息表
     this.customersTable = new dynamodb.Table(this, 'CustomersTable', {
@@ -294,61 +211,7 @@ export class LinuoAwsTemplateStack extends cdk.Stack {
       },
     });
 
-    // Customer Product Transactions Table - 客户产品购买记录表
-    this.customerProductTransactionsTable = new dynamodb.Table(this, 'CustomerProductTransactionsTable', {
-      tableName: `${baseName}-${environment}-customer-product-transactions`,
-      partitionKey: {
-        name: 'transactionId',
-        type: dynamodb.AttributeType.STRING,
-      },
-      sortKey: {
-        name: 'createdAt',
-        type: dynamodb.AttributeType.STRING,
-      },
-      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
-      encryption: dynamodb.TableEncryption.AWS_MANAGED,
-      pointInTimeRecovery: environment === 'prod',
-      removalPolicy: environment === 'prod' ? cdk.RemovalPolicy.RETAIN : cdk.RemovalPolicy.DESTROY,
-    });
-
-    // Add GSI for customer transactions lookup
-    this.customerProductTransactionsTable.addGlobalSecondaryIndex({
-      indexName: 'CustomerTransactionsIndex',
-      partitionKey: {
-        name: 'customerId',
-        type: dynamodb.AttributeType.STRING,
-      },
-      sortKey: {
-        name: 'createdAt',
-        type: dynamodb.AttributeType.STRING,
-      },
-    });
-
-    // Add GSI for product transactions lookup
-    this.customerProductTransactionsTable.addGlobalSecondaryIndex({
-      indexName: 'ProductTransactionsIndex',
-      partitionKey: {
-        name: 'productId',
-        type: dynamodb.AttributeType.STRING,
-      },
-      sortKey: {
-        name: 'createdAt',
-        type: dynamodb.AttributeType.STRING,
-      },
-    });
-
-    // Add GSI for transaction status lookup
-    this.customerProductTransactionsTable.addGlobalSecondaryIndex({
-      indexName: 'TransactionStatusIndex',
-      partitionKey: {
-        name: 'transactionStatus',
-        type: dynamodb.AttributeType.STRING,
-      },
-      sortKey: {
-        name: 'createdAt',
-        type: dynamodb.AttributeType.STRING,
-      },
-    });
+    // Removed legacy CustomerProductTransactions table per module cleanup
 
     // Lambda Function for API
     this.apiLambda = new lambda.Function(this, 'ApiLambda', {
@@ -369,7 +232,6 @@ export class LinuoAwsTemplateStack extends cdk.Stack {
         APP_AWS_REGION: this.region,
 
         // AWS S3 Configuration
-        S3_BUCKET_NAME: this.s3Bucket.bucketName,
         S3_IMPORT_EXPORT_BUCKET_NAME: this.importExportBucket.bucketName,
         S3_REGION: this.region,
 
@@ -388,11 +250,9 @@ export class LinuoAwsTemplateStack extends cdk.Stack {
 
         // Database Configuration
         DB_TABLE_USERS: this.usersTable.tableName,
-        DB_TABLE_TRADES: this.tradesTable.tableName,
-        DB_TABLE_FILES: this.filesTable.tableName,
         DB_TABLE_CUSTOMERS: this.customersTable.tableName,
         DB_TABLE_PRODUCTS: this.productsTable.tableName,
-        DB_TABLE_CUSTOMER_PRODUCT_TRANSACTIONS: this.customerProductTransactionsTable.tableName,
+        // Note: legacy tables removed (trades, files, customer-product-transactions)
 
         // API Configuration
         API_PREFIX: 'api/v1',
@@ -403,14 +263,10 @@ export class LinuoAwsTemplateStack extends cdk.Stack {
     });
 
     // Grant permissions to Lambda
-    this.s3Bucket.grantReadWrite(this.apiLambda);
     this.importExportBucket.grantReadWrite(this.apiLambda);
     this.usersTable.grantReadWriteData(this.apiLambda);
-    this.tradesTable.grantReadWriteData(this.apiLambda);
-    this.filesTable.grantReadWriteData(this.apiLambda);
     this.customersTable.grantReadWriteData(this.apiLambda);
     this.productsTable.grantReadWriteData(this.apiLambda);
-    this.customerProductTransactionsTable.grantReadWriteData(this.apiLambda);
 
     // Grant Cognito permissions
     this.apiLambda.addToRolePolicy(
@@ -474,7 +330,6 @@ export class LinuoAwsTemplateStack extends cdk.Stack {
       `AWS_REGION=${this.region}`,
       ``,
       `# AWS S3 Configuration`,
-      `S3_BUCKET_NAME=${this.s3Bucket.bucketName}`,
       `S3_IMPORT_EXPORT_BUCKET_NAME=${this.importExportBucket.bucketName}`,
       `S3_REGION=${this.region}`,
       ``,
@@ -493,11 +348,8 @@ export class LinuoAwsTemplateStack extends cdk.Stack {
       ``,
       `# Database Configuration`,
       `DB_TABLE_USERS=${this.usersTable.tableName}`,
-      `DB_TABLE_TRADES=${this.tradesTable.tableName}`,
-      `DB_TABLE_FILES=${this.filesTable.tableName}`,
       `DB_TABLE_CUSTOMERS=${this.customersTable.tableName}`,
       `DB_TABLE_PRODUCTS=${this.productsTable.tableName}`,
-      `DB_TABLE_CUSTOMER_PRODUCT_TRANSACTIONS=${this.customerProductTransactionsTable.tableName}`,
       ``,
       `# API Configuration`,
       `API_PREFIX=api/v1`,

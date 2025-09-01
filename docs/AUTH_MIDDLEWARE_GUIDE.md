@@ -4,6 +4,56 @@
 
 本项目现在使用认证中间件 (`AuthMiddleware`) 来处理 JWT 认证，并在 `AppModule` 中配置白名单路由管理。这种方式比使用全局守卫更灵活，可以精确控制哪些路由需要认证。
 
+## 分步实施与可验证清单
+
+以下步骤将本指南的要求拆解为可操作、可验证的最小单元。每一步都包含“实施”和“验证”两部分，完成后即可确认达标。
+
+1) 准备与基础配置
+- 实施: 确认全局注册 `JwtModule` 且加载 `jwt.secret`、`jwt.expiresIn`；确保配置来源于 `configuration.ts` 与 `.env`/`.env.local`（例如 `JWT_SECRET`、`JWT_EXPIRES_IN`）。
+- 验证: 运行 `npm run build` 成功；若本地启动，`npm run start:dev` 无报错，控制台输出包含全局前缀（默认 `api/v1`）。
+
+2) 实施 AuthMiddleware
+- 实施: 在 `backend/src/auth/middleware/auth.middleware.ts` 中从 `Authorization: Bearer <token>` 解析 JWT，使用 `JwtService.verifyAsync` 按 `jwt.secret` 校验；校验成功将 `{ userId, username, email, role }` 挂载到 `req.user`，失败抛出 `UnauthorizedException`。
+- 验证: 启动服务后，访问一个需要认证的受保护路由（如 `GET /api/v1/products`），无 Token 返回 401；携带有效 Token 返回 200 且服务端可读取 `req.user`。
+
+3) 在 AppModule 应用中间件并配置白名单
+- 实施: 在 `backend/src/app.module.ts` 中使用 `consumer.apply(AuthMiddleware).exclude(...).forRoutes('*')`；白名单至少包含登录/注册/健康检查/根路径/文档路由。注意：代码里的 `exclude` 路径不包含全局前缀（例如写 `auth/login`），对外请求路径依然是 `api/v1/auth/login`。
+- 验证: 使用 curl 手动验证：
+  - `GET /api/v1/health`、`GET /api/v1/`、`GET /api/v1/docs` 在未携带 Token 时应 200。
+  - `GET /api/v1/products` 在未携带 Token 时应 401；携带有效 Token 时应 200。
+
+4) 迁移控制器（从全局守卫到中间件）
+- 实施: 移除控制器/路由上的 `@UseGuards(JwtAuthGuard)`（认证统一由中间件处理）；保留 `@ApiBearerAuth('JWT-auth')` 以支持 Swagger 试调。
+- 验证: 代码检索不应再出现 `JwtAuthGuard` 的全局使用/绑定；`npm run build` 通过；通过 Swagger 在受保护路由中带上 Authorize 后可正常访问。
+
+5) 配置与使用角色守卫（授权）
+- 实施: 在 `backend/src/auth/guards/roles.guard.ts` 中基于 `@Roles(...roles)` 元数据与 `req.user.role` 进行校验；在需要的控制器路由上添加 `@UseGuards(RolesGuard)` 和 `@Roles(Role.ADMIN, ...)`。
+- 验证: 为同一路由分别使用不含目标角色与含目标角色的 Token 请求：前者应 403，后者 200。
+
+6) 使用 `@CurrentUser()` 装饰器读取用户
+- 实施: 在控制器方法参数中使用 `@CurrentUser()` 或 `@CurrentUser('userId')` 读取注入的用户信息。
+- 验证: 在任一受保护接口中临时输出或断点检查可获取 `userId/role` 等字段；无 Token 时中间件应先拦截为 401。
+
+7) 白名单变更流程
+- 实施: 新增公开路由时，仅在 `AppModule.exclude()` 添加相应项；对外文档/工具中标注其对外完整路径（含前缀），代码中保持不含前缀的路径写法。
+- 验证: 新增后逐一通过 curl 验证未携带 Token 可 200；同时验证非白名单受保护路由仍返回 401。
+
+8) 安全基线检查
+- 实施: 定期审查白名单，避免将敏感路由纳入；确保 `JWT_SECRET` 为强随机值；在生产环境关闭/限制文档访问；按需增加速率限制/日志审计。
+- 验证: 
+  - 配置: `.env` 中存在强 `JWT_SECRET`，生产环境 `NODE_ENV=production` 下不暴露 `/api/v1/docs`；
+  - 行为: 使用无效/过期 Token 均返回 401；权限不足返回 403；白名单外的所有路由都需要 Token。
+
+9) 手动与脚本化联调
+- 实施: 使用项目自带 curl 示例或临时 Node 脚本，对白名单/受保护/带角色限制的路由进行全链路验证。
+- 验证: 参考“测试认证中间件”章节，三类请求（白名单 200、无 Token 401、携 Token 200/403）均符合预期。
+
+10) 验收清单（完成即勾选）
+- 受保护路由默认需要认证；白名单路由无需认证。
+- 合法 Token 可访问受保护路由并在 `@CurrentUser()` 读到用户信息。
+- 角色不足返回 403，角色满足返回 200。
+- 生产环境下文档访问受控，密钥安全要求达标。
+
 ## 架构变更
 
 ### 之前的方式

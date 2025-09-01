@@ -217,6 +217,7 @@ export class LinuoAwsTemplateStack extends cdk.Stack {
     this.apiLambda = new lambda.Function(this, 'ApiLambda', {
       functionName: `${baseName}-api-${environment}`,
       runtime: lambda.Runtime.NODEJS_22_X,
+      architecture: lambda.Architecture.ARM_64,
       handler: 'lambda.handler',
       code: lambda.Code.fromAsset(path.join(__dirname, '../../lambda-package')),
       timeout: cdk.Duration.seconds(30),

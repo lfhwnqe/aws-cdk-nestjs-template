@@ -1,9 +1,113 @@
-# 基于 AWS Cognito JWT 的鉴权改造方案（全量切换版）
+# 基于 AWS Cognito JWT 的鉴权改造方案（新建 Auth 模块并移除旧模块）
 
 ## 文档目标
 - 立即将系统从“自签 JWT”切换为“完全基于 AWS Cognito JWT”的鉴权体系。
 - 统一所有后端服务的令牌验证逻辑，仅接受 Cognito 颁发的 JWT。
 - 移除自签令牌相关代码、配置与文档，不保留回滚与双栈兼容路径。
+
+## 实施步骤（新增 auth 模块，彻底替换旧模块）
+本节提供在当前仓库落地的逐步操作清单，目标是“新增一套基于 Cognito 的全新 auth 模块”，并删除旧的自签 JWT 实现。
+
+1) 分支与依赖
+- 新分支：`git checkout -b feature/auth-cognito-rewrite`
+- 新增依赖：`npm i aws-jwt-verify @aws-sdk/client-cognito-identity-provider`
+- 移除依赖（若无他处使用）：`npm remove @nestjs/jwt jsonwebtoken passport-jwt passport-local bcryptjs`
+
+2) 新建模块骨架（覆盖式替换现有 `backend/src/auth`）
+- 保留目录：`backend/src/auth/`
+- 创建/重写文件：
+  - `backend/src/auth/auth.module.ts`：仅保留 `ConfigModule` 导入；去除 `JwtModule/PassportModule`。
+  - `backend/src/auth/auth.controller.ts`：接口统一调用 Cognito（`login/refresh/logout`），返回 Cognito 原生 tokens；保留注册与验证（`register/verify-registration`）对接 Cognito。
+  - `backend/src/auth/auth.service.ts`：删除本地用户校验与自签 `JwtService.sign`，改为调用 Cognito（`InitiateAuth`、`REFRESH_TOKEN_AUTH`、`GlobalSignOut`/`RevokeToken`）。不再读写本地 `password`。
+  - `backend/src/auth/guards/cognito-jwt.guard.ts`：新增基于 `aws-jwt-verify` 的守卫，校验 `Authorization: Bearer <token>`，并将 claims 映射到 `req.user`。
+  - `backend/src/auth/guards/roles.guard.ts`：更新为基于 `cognito:groups`（或 `custom:role`）授权（见下文示例或沿用已增强版本）。
+
+3) 删除旧实现（物理文件清理）
+- 删除策略与中间件：
+  - `backend/src/auth/strategies/jwt.strategy.ts`
+  - `backend/src/auth/strategies/local.strategy.ts`
+  - `backend/src/auth/middleware/auth.middleware.ts`
+- 清理服务与逻辑：
+  - 从 `backend/src/auth/auth.service.ts` 移除：`validateUser()`、本地密码哈希/比对、`JwtService` 注入与 `sign()` 调用、DynamoDB 对 `password` 的写入与依赖授权判断。
+- 配置清理：
+  - 删除 `config/configuration.ts` 中 `jwt.*` 导出；删除 `.env(.example)` 中 `JWT_SECRET/JWT_EXPIRES_IN` 等条目。
+  - 若 `app.module.ts` 或其他模块引用 `JwtModule/PassportModule`（仅用于 auth），一并移除。
+
+4) Nest 鉴权接入（守卫模式，推荐）
+- 新建 `backend/src/auth/guards/cognito-jwt.guard.ts`（示例）：
+```ts
+import { CanActivate, ExecutionContext, Injectable, UnauthorizedException } from '@nestjs/common';
+import { CognitoJwtVerifier } from 'aws-jwt-verify';
+
+@Injectable()
+export class CognitoJwtAuthGuard implements CanActivate {
+  private static verifier = CognitoJwtVerifier.create({
+    userPoolId: process.env.COGNITO_USER_POOL_ID!,
+    clientId: process.env.COGNITO_CLIENT_ID!,
+    tokenUse: (process.env.COGNITO_TOKEN_USE as 'access' | 'id') || 'access',
+  });
+
+  async canActivate(context: ExecutionContext): Promise<boolean> {
+    const req = context.switchToHttp().getRequest();
+    const auth = req.headers['authorization'] || '';
+    if (!auth.startsWith('Bearer ')) throw new UnauthorizedException('Missing Bearer token');
+    const token = auth.slice(7);
+    try {
+      const payload = await CognitoJwtAuthGuard.verifier.verify(token);
+      req.user = {
+        userId: payload.sub,
+        email: (payload as any).email,
+        groups: (payload as any)['cognito:groups'],
+        role: (payload as any)['custom:role'],
+      };
+      return true;
+    } catch (e) {
+      throw new UnauthorizedException('Invalid or expired Cognito token');
+    }
+  }
+}
+```
+- 在需要保护的控制器/路由上使用：`@UseGuards(CognitoJwtAuthGuard, RolesGuard)`。
+- 如需全局启用，可在 `app.module.ts` 里通过 `APP_GUARD` 注册。
+
+5) 控制器与服务改造
+- `auth.controller.ts`
+  - `POST /auth/login`：调用 Cognito `InitiateAuth(USER_PASSWORD_AUTH)`，返回 Cognito 原生 `{ access_token, id_token, refresh_token, expires_in, token_type }`。
+  - `POST /auth/refresh`：`REFRESH_TOKEN_AUTH` 刷新令牌。
+  - `POST /auth/logout`（可选）：`GlobalSignOut` 或 `RevokeToken`。
+  - `GET /auth/profile`：由守卫写入的 `req.user` 取 claims 并返回。
+- `auth.service.ts`
+  - 删除 `validateUser()` 与所有 `bcrypt`/`JwtService` 相关逻辑。
+  - 所有登录/刷新/登出调用 `CognitoService`（`@/shared/services/cognito.service`）。
+  - 数据层不再读写 `password` 字段。
+
+6) 角色与授权
+- `RolesGuard` 基于 `cognito:groups` 判定（或回退 `custom:role`），参考下文“示例（RolesGuard 增强版）”。
+- Cognito 中创建并管理组：`super_admin`、`admin`、`user`、`moderator`、`customer`（详见下文 CDK/CLI 示例）。
+
+7) 配置与环境变量
+- 必填：`COGNITO_USER_POOL_ID`、`COGNITO_CLIENT_ID`、`COGNITO_REGION`
+- 可选：`COGNITO_TOKEN_USE=access`、`COGNITO_JWKS_CACHE_TTL=600`
+- 移除：`JWT_SECRET`、`JWT_EXPIRES_IN` 等自签条目
+
+8) 代码引用与模块整理
+- `auth.module.ts` 移除 `JwtModule`、`PassportModule` 的导入和 `providers/exports` 绑定；仅保留 `AuthController`、`AuthService`、`RolesGuard`、`CognitoJwtAuthGuard`。
+- 删除所有对 `AuthMiddleware`、`JwtStrategy`、`LocalStrategy` 的引用。
+- 业务模块的 `@UseGuards()` 更新为使用 `CognitoJwtAuthGuard`。
+
+9) 数据与迁移
+- 停止写入/更新 `users` 表的 `password` 字段；如需保留历史可暂不清理，仅停止使用。
+- 若有依赖 `role` 字段的逻辑，迁移到基于 `cognito:groups` 的授权判断。
+
+10) 验证与上线
+- 本地：`npm run start:dev`，使用测试池签发的 token 访问受保护路由应 200；旧自签 token 401。
+- 构建：`npm run build && npm run build:lambda`（如需部署 Lambda）。
+- 测试：`npm test`（补充/更新 auth 相关单测）。
+- 基础设施：`npm run cdk:diff:dev` → `npm run cdk:deploy:dev`（如需变更组/池）。
+
+11) 清理与提交
+- 更新 `.env.example` 仅保留 `COGNITO_*`；README/Swagger 注释同步。
+- 提交：`feat(auth): replace with AWS Cognito JWT auth`（中文补充说明可加在 body）。
 
 ## 范围与不在范围
 - 范围：后端鉴权链路、登录/刷新/登出接口、配置与中间件调整、其他服务验签指引、监控与验收。
@@ -68,8 +172,8 @@
   - 重写 `login()`：调用 Cognito，返回原生 tokens；删除 `validateUser()`、删除自签 `JwtService.sign`。
   - 新增 `refresh()`、`logout()` 对接 Cognito。
 - `auth/middleware/auth.middleware.ts`
-  - 替换为基于 `CognitoJwtVerifier` 的验证：仅接受 Cognito JWT。
-  - 将 payload 映射到 `req.user = { userId: sub, email, groups, role }`。
+  - 删除中间件实现，改为使用守卫 `CognitoJwtAuthGuard`（见上文实施步骤 4）。
+  - 将 payload 映射到 `req.user = { userId: sub, email, groups, role }`（在守卫内完成）。
 - `auth/strategies/*`
   - 物理删除 `LocalStrategy` 与自签 `JwtStrategy`（及其引用）。
 - `config/configuration.ts`

@@ -95,6 +95,21 @@ Environment variables are populated by CDK stack outputs (e.g., `S3_IMPORT_EXPOR
 3. Commit with [Conventional Commits](https://www.conventionalcommits.org/)
 4. Open a pull request
 
+## Repo Activity
+
+<p align="center">
+  <a href="https://repobeats.axiom.co" target="_blank" rel="noopener noreferrer">
+    <img
+      src="https://repobeats.axiom.co/api/embed/cf7ac95ff5e42f909c41824acf1902c37ffe9dc0.svg"
+      alt="Repobeats analytics for this repository"
+      title="Repobeats analytics"
+      width="100%"
+    />
+  </a>
+  <br />
+  <sub>Traffic and activity overview, auto-updated by Repobeats.</sub>
+  <br />
+</p>
 ## License
 
 MIT

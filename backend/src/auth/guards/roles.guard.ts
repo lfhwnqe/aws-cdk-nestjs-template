@@ -12,16 +12,29 @@ export class RolesGuard implements CanActivate {
       context.getClass(),
     ]);
 
-    if (!requiredRoles) {
+    if (!requiredRoles || requiredRoles.length === 0) {
       return true;
     }
 
     const { user } = context.switchToHttp().getRequest();
+    if (!user) return false;
 
-    if (!user) {
-      return false;
-    }
+    const claims = user.claims || user;
+    const groups: string[] =
+      (claims['cognito:groups'] as string[]) || user.groups || [];
+    const roleClaim = claims['custom:role'] || claims['role'] || user.role;
 
-    return requiredRoles.some((role) => user.role === role);
+    const roleSet = new Set<string>(
+      [
+        ...groups,
+        ...(Array.isArray(roleClaim)
+          ? (roleClaim as string[])
+          : roleClaim
+            ? [String(roleClaim)]
+            : []),
+      ].map((v) => String(v)),
+    );
+
+    return requiredRoles.some((role) => roleSet.has(role));
   }
 }

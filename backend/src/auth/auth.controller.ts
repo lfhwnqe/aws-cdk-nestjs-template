@@ -1,17 +1,32 @@
-import { Controller, Post, Body, Get } from '@nestjs/common';
-import {
-  ApiTags,
-  ApiOperation,
-  ApiResponse,
-  ApiBearerAuth,
-} from '@nestjs/swagger';
+import { Controller, Post, Body } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { VerifyRegistrationDto } from './dto/verify-registration.dto';
-import { CurrentUser } from '../common/decorators/current-user.decorator';
-import { ChangePasswordDto } from './dto/change-password.dto';
+import { Public } from '../common/decorators/public.decorator';
+import { IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import { ApiProperty } from '@nestjs/swagger';
+
+class RefreshTokenDto {
+  @ApiProperty({ description: 'Cognito Refresh Token' })
+  @IsString()
+  @IsNotEmpty()
+  refreshToken: string;
+}
+
+class LogoutDto {
+  @ApiProperty({ required: false, description: 'Cognito Access Token' })
+  @IsString()
+  @IsOptional()
+  accessToken?: string;
+
+  @ApiProperty({ required: false, description: 'Cognito Refresh Token' })
+  @IsString()
+  @IsOptional()
+  refreshToken?: string;
+}
 
 @ApiTags('Authentication')
 @Controller('auth')
@@ -19,6 +34,7 @@ export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Post('login')
+  @Public()
   @ApiOperation({ summary: 'User login' })
   @ApiResponse({ status: 200, description: 'Login successful' })
   @ApiResponse({ status: 401, description: 'Invalid credentials' })
@@ -27,6 +43,7 @@ export class AuthController {
   }
 
   @Post('register')
+  @Public()
   @ApiOperation({ summary: 'User registration' })
   @ApiResponse({ status: 201, description: 'User registered successfully' })
   @ApiResponse({ status: 400, description: 'Registration failed' })
@@ -35,6 +52,7 @@ export class AuthController {
   }
 
   @Post('verify-registration')
+  @Public()
   @ApiOperation({
     summary: 'Verify user registration with email verification code',
   })
@@ -70,28 +88,19 @@ export class AuthController {
     return this.authService.verifyRegistration(verifyRegistrationDto);
   }
 
-  @Get('profile')
-  @ApiBearerAuth('JWT-auth')
-  @ApiOperation({ summary: 'Get user profile' })
-  @ApiResponse({ status: 200, description: 'Profile retrieved successfully' })
-  @ApiResponse({ status: 401, description: 'Unauthorized' })
-  async getProfile(@CurrentUser('userId') userId: string) {
-    return this.authService.getProfile(userId);
+  @Post('refresh')
+  @Public()
+  @ApiOperation({ summary: 'Refresh tokens via Cognito' })
+  @ApiResponse({ status: 200, description: 'Tokens refreshed' })
+  async refresh(@Body() dto: RefreshTokenDto) {
+    return this.authService.refresh(dto.refreshToken);
   }
 
-  @Post('change-password')
-  @ApiBearerAuth('JWT-auth')
-  @ApiOperation({ summary: 'Change password (Cognito)' })
-  @ApiResponse({ status: 200, description: 'Password changed successfully' })
-  @ApiResponse({ status: 400, description: 'Invalid new password' })
-  @ApiResponse({
-    status: 401,
-    description: 'Unauthorized or wrong old password',
-  })
-  async changePassword(
-    @CurrentUser('userId') userId: string,
-    @Body() dto: ChangePasswordDto,
-  ) {
-    return this.authService.changePassword(userId, dto);
+  @Post('logout')
+  @Public()
+  @ApiOperation({ summary: 'Logout (GlobalSignOut/RevokeToken)' })
+  @ApiResponse({ status: 200, description: 'Logged out' })
+  async logout(@Body() dto: LogoutDto) {
+    return this.authService.logout(dto);
   }
 }

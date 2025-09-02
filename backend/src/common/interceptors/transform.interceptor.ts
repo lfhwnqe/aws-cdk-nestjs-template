@@ -22,6 +22,15 @@ export class TransformInterceptor<T>
     context: ExecutionContext,
     next: CallHandler,
   ): Observable<Response<T>> {
+    // 跳过 Swagger 文档与其静态资源，避免破坏返回的 HTML/JS/JSON
+    if (context.getType() === 'http') {
+      const req = context.switchToHttp().getRequest();
+      const url: string = req.url || '';
+      // if (url.includes('/docs') || url.includes('/docs-json')) {
+      //   return next.handle() as any;
+      // }
+    }
+
     return next.handle().pipe(
       map((data) => ({
         success: true,

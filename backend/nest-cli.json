@@ -4,8 +4,23 @@
   "sourceRoot": "src",
   "compilerOptions": {
     "deleteOutDir": true,
-    "webpack": true,
+    "webpack": false,
     "tsConfigPath": "tsconfig.build.json",
-    "outDir": "build"
+    "outDir": "build",
+    "assets": [
+      {
+        "include": "node_modules/swagger-ui-dist/**",
+        "outDir": "build/swagger-ui"
+      },
+      {
+        "include": "../node_modules/swagger-ui-dist/**",
+        "outDir": "build/swagger-ui"
+      },
+      {
+        "include": "../../node_modules/swagger-ui-dist/**",
+        "outDir": "build/swagger-ui"
+      }
+    ],
+    "watchAssets": true
   }
 }

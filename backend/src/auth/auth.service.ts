@@ -194,7 +194,8 @@ export class AuthService {
     let assignRole: Role = Role.USER;
     try {
       const listRes = await this.cognitoService.listUsers(1);
-      const hasAnyUser = Array.isArray(listRes.Users) && listRes.Users.length > 0;
+      const hasAnyUser =
+        Array.isArray(listRes.Users) && listRes.Users.length > 0;
       assignRole = hasAnyUser ? Role.USER : Role.SUPER_ADMIN;
       this.logger.log(
         `Register flow role decision => hasAnyUser=${hasAnyUser}, assignRole=${assignRole}`,
@@ -229,7 +230,8 @@ export class AuthService {
       }
 
       try {
-        const groupName = assignRole === Role.SUPER_ADMIN ? Role.SUPER_ADMIN : Role.USER;
+        const groupName =
+          assignRole === Role.SUPER_ADMIN ? Role.SUPER_ADMIN : Role.USER;
         await this.cognitoService.adminAddUserToGroup(username, groupName);
         this.logger.log(
           `Added user to Cognito group => username=${username}, group=${groupName}`,

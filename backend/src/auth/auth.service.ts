@@ -12,6 +12,7 @@ import {
   GlobalSignOutCommand,
   RevokeTokenCommand,
 } from '@aws-sdk/client-cognito-identity-provider';
+import crypto from 'node:crypto';
 
 import { CognitoService } from '../shared/services/cognito.service';
 import { LoginDto } from './dto/login.dto';
@@ -23,6 +24,7 @@ export class AuthService {
   private readonly logger = new Logger(AuthService.name);
   private readonly cognitoClient: CognitoIdentityProviderClient;
   private readonly clientId: string;
+  private readonly clientSecret?: string;
 
   constructor(
     private readonly configService: ConfigService,
@@ -30,11 +32,20 @@ export class AuthService {
   ) {
     const region = this.configService.get<string>('cognito.region');
     this.clientId = this.configService.get<string>('cognito.clientId');
+    this.clientSecret = this.configService.get<string>('cognito.clientSecret');
     this.cognitoClient = new CognitoIdentityProviderClient({ region });
+  }
+
+  private computeSecretHash(username: string): string | undefined {
+    if (!this.clientSecret || !this.clientId) return undefined;
+    const hmac = crypto.createHmac('sha256', this.clientSecret);
+    hmac.update(username + this.clientId);
+    return hmac.digest('base64');
   }
 
   async login(dto: LoginDto) {
     try {
+      const secretHash = this.computeSecretHash(dto.username);
       const res = await this.cognitoClient.send(
         new InitiateAuthCommand({
           ClientId: this.clientId,
@@ -42,6 +53,7 @@ export class AuthService {
           AuthParameters: {
             USERNAME: dto.username,
             PASSWORD: dto.password,
+            ...(secretHash ? { SECRET_HASH: secretHash } : {}),
           },
         }),
       );
@@ -66,17 +78,30 @@ export class AuthService {
     }
   }
 
-  async refresh(refreshToken: string) {
+  async refresh(params: { refreshToken: string; username?: string }) {
+    const { refreshToken, username } = params || ({} as any);
     if (!refreshToken) {
       throw new BadRequestException('Missing refresh token');
     }
     try {
+      const needsSecret = !!this.clientSecret;
+      let secretHash: string | undefined;
+      if (needsSecret) {
+        if (!username) {
+          throw new BadRequestException(
+            'Missing username for refresh with client secret',
+          );
+        }
+        secretHash = this.computeSecretHash(username);
+      }
       const res = await this.cognitoClient.send(
         new InitiateAuthCommand({
           ClientId: this.clientId,
           AuthFlow: 'REFRESH_TOKEN_AUTH',
           AuthParameters: {
             REFRESH_TOKEN: refreshToken,
+            ...(needsSecret && username ? { USERNAME: username } : {}),
+            ...(secretHash ? { SECRET_HASH: secretHash } : {}),
           },
         }),
       );
@@ -123,6 +148,7 @@ export class AuthService {
         await this.cognitoClient.send(
           new RevokeTokenCommand({
             ClientId: this.clientId,
+            ...(this.clientSecret ? { ClientSecret: this.clientSecret } : {}),
             Token: refreshToken,
           }),
         );
@@ -135,7 +161,32 @@ export class AuthService {
   }
 
   async register(registerDto: RegisterDto) {
-    const { username, email, password, firstName, lastName } = registerDto;
+    const username = registerDto.username?.trim();
+    const email = registerDto.email?.trim();
+    const password = registerDto.password;
+    const firstName = registerDto.firstName?.trim();
+    const lastName = registerDto.lastName?.trim();
+    const isEmailLikeUsername = /.+@.+\..+/.test(username || '');
+    this.logger.log(
+      `Register input snapshot => username=${username}, email=${email}, isEmailLikeUsername=${isEmailLikeUsername}, firstName=${firstName}, lastName=${lastName}`,
+    );
+    if (isEmailLikeUsername) {
+      this.logger.warn(
+        'Username looks like an email. If User Pool uses email alias, Cognito SignUp may reject this.',
+      );
+    }
+    // 后端校验拦截：当用户池启用了 email alias，禁止邮箱格式作为 Username
+    const emailAliasEnabled = this.configService.get<boolean>(
+      'cognito.emailAliasEnabled',
+    );
+    if (emailAliasEnabled && isEmailLikeUsername) {
+      this.logger.warn(
+        'Blocked registration: username is email-like while email alias is enabled.',
+      );
+      throw new BadRequestException(
+        '用户名不能为邮箱格式（当前用户池启用了 email 作为别名）。请使用非邮箱的用户名，邮箱请填写在 email 字段。',
+      );
+    }
     try {
       const res = await this.cognitoService.signUp(
         username,
@@ -152,6 +203,10 @@ export class AuthService {
       };
     } catch (error) {
       const name = (error && (error.name || (error as any).__type)) || '';
+      const detail = (error as any)?.message || '';
+      this.logger.error(
+        `Cognito SignUp failed: ${name} - ${detail}; username=${username}, email=${email}, isEmailLikeUsername=${isEmailLikeUsername}`,
+      );
       if (name === 'UsernameExistsException') {
         throw new ConflictException('Username already exists');
       }
@@ -159,7 +214,13 @@ export class AuthService {
         throw new BadRequestException('Password does not meet policy');
       }
       if (name === 'InvalidParameterException') {
-        throw new BadRequestException('Invalid registration parameters');
+        // 在开发环境中返回更详细的提示，便于排查（例如 SecretHash 缺失/不匹配、属性不被允许等）
+        const nodeEnv = this.configService.get<string>('nodeEnv');
+        const msg =
+          nodeEnv === 'production'
+            ? 'Invalid registration parameters'
+            : `Invalid registration parameters: ${detail}`;
+        throw new BadRequestException(msg);
       }
       throw new BadRequestException('Registration failed');
     }

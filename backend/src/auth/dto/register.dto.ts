@@ -9,7 +9,8 @@ import {
 
 export class RegisterDto {
   @ApiProperty({
-    description: 'Username',
+    description:
+      'Username（注意：若用户池启用了 email alias，用户名不能为邮箱格式，请使用非邮箱用户名）',
     example: 'john_doe',
   })
   @IsString()

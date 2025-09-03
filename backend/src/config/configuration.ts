@@ -22,7 +22,13 @@ export default () => ({
   cognito: {
     userPoolId: process.env.COGNITO_USER_POOL_ID,
     clientId: process.env.COGNITO_CLIENT_ID,
+    clientSecret: process.env.COGNITO_CLIENT_SECRET,
     region: process.env.COGNITO_REGION || 'ap-southeast-1',
+    // When email is configured as an alias in User Pool, Cognito disallows email-form usernames in SignUp Username
+    // Set COGNITO_EMAIL_ALIAS_ENABLED=false to disable this guard if your pool allows email as username
+    emailAliasEnabled:
+      (process.env.COGNITO_EMAIL_ALIAS_ENABLED || 'true').toLowerCase() ===
+      'true',
   },
 
   // DynamoDB Configuration

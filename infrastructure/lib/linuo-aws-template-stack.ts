@@ -20,9 +20,6 @@ export class LinuoAwsTemplateStack extends cdk.Stack {
   public readonly importExportBucket: s3.Bucket;
   public readonly userPool: cognito.UserPool;
   public readonly userPoolClient: cognito.UserPoolClient;
-  public readonly usersTable: dynamodb.Table;
-  // New tables for financial product management
-  public readonly customersTable: dynamodb.Table;
   public readonly productsTable: dynamodb.Table;
   public readonly apiLambda: lambda.Function;
   public readonly api: apigateway.RestApi;
@@ -44,7 +41,11 @@ export class LinuoAwsTemplateStack extends cdk.Stack {
       cors: [
         {
           // Pre-signed URL flow needs GET/PUT/HEAD
-          allowedMethods: [s3.HttpMethods.GET, s3.HttpMethods.PUT, s3.HttpMethods.HEAD],
+          allowedMethods: [
+            s3.HttpMethods.GET,
+            s3.HttpMethods.PUT,
+            s3.HttpMethods.HEAD,
+          ],
           allowedOrigins: ['*'], // TODO: restrict to frontend origins when available
           allowedHeaders: ['*'],
           exposedHeaders: ['ETag', 'x-amz-request-id'],
@@ -60,7 +61,10 @@ export class LinuoAwsTemplateStack extends cdk.Stack {
           abortIncompleteMultipartUploadAfter: cdk.Duration.days(1),
         },
       ],
-      removalPolicy: environment === 'prod' ? cdk.RemovalPolicy.RETAIN : cdk.RemovalPolicy.DESTROY,
+      removalPolicy:
+        environment === 'prod'
+          ? cdk.RemovalPolicy.RETAIN
+          : cdk.RemovalPolicy.DESTROY,
     });
 
     // Cognito User Pool
@@ -96,7 +100,10 @@ export class LinuoAwsTemplateStack extends cdk.Stack {
         requireSymbols: true,
       },
       accountRecovery: cognito.AccountRecovery.EMAIL_ONLY,
-      removalPolicy: environment === 'prod' ? cdk.RemovalPolicy.RETAIN : cdk.RemovalPolicy.DESTROY,
+      removalPolicy:
+        environment === 'prod'
+          ? cdk.RemovalPolicy.RETAIN
+          : cdk.RemovalPolicy.DESTROY,
     });
 
     // Cognito User Pool Client
@@ -113,7 +120,11 @@ export class LinuoAwsTemplateStack extends cdk.Stack {
         flows: {
           authorizationCodeGrant: true,
         },
-        scopes: [cognito.OAuthScope.OPENID, cognito.OAuthScope.EMAIL, cognito.OAuthScope.PROFILE],
+        scopes: [
+          cognito.OAuthScope.OPENID,
+          cognito.OAuthScope.EMAIL,
+          cognito.OAuthScope.PROFILE,
+        ],
       },
     });
 
@@ -139,59 +150,7 @@ export class LinuoAwsTemplateStack extends cdk.Stack {
     });
 
     // DynamoDB Tables
-    this.usersTable = new dynamodb.Table(this, 'UsersTable', {
-      tableName: `${baseName}-${environment}-users`,
-      partitionKey: {
-        name: 'userId',
-        type: dynamodb.AttributeType.STRING,
-      },
-      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
-      encryption: dynamodb.TableEncryption.AWS_MANAGED,
-      pointInTimeRecovery: environment === 'prod',
-      removalPolicy: environment === 'prod' ? cdk.RemovalPolicy.RETAIN : cdk.RemovalPolicy.DESTROY,
-    });
-
-    // Add GSI for email lookup
-    this.usersTable.addGlobalSecondaryIndex({
-      indexName: 'EmailIndex',
-      partitionKey: {
-        name: 'email',
-        type: dynamodb.AttributeType.STRING,
-      },
-    });
-
-    // Removed legacy Trades/Files tables per module cleanup
-
-    // Customers Table - 客户信息表
-    this.customersTable = new dynamodb.Table(this, 'CustomersTable', {
-      tableName: `${baseName}-${environment}-customers`,
-      partitionKey: {
-        name: 'customerId',
-        type: dynamodb.AttributeType.STRING,
-      },
-      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
-      encryption: dynamodb.TableEncryption.AWS_MANAGED,
-      pointInTimeRecovery: environment === 'prod',
-      removalPolicy: environment === 'prod' ? cdk.RemovalPolicy.RETAIN : cdk.RemovalPolicy.DESTROY,
-    });
-
-    // Add GSI for email lookup
-    this.customersTable.addGlobalSecondaryIndex({
-      indexName: 'EmailIndex',
-      partitionKey: {
-        name: 'email',
-        type: dynamodb.AttributeType.STRING,
-      },
-    });
-
-    // Add GSI for phone lookup
-    this.customersTable.addGlobalSecondaryIndex({
-      indexName: 'PhoneIndex',
-      partitionKey: {
-        name: 'phone',
-        type: dynamodb.AttributeType.STRING,
-      },
-    });
+    // Removed legacy Users/Customers tables per module cleanup
 
     // Products Table - 产品信息表
     this.productsTable = new dynamodb.Table(this, 'ProductsTable', {
@@ -203,7 +162,10 @@ export class LinuoAwsTemplateStack extends cdk.Stack {
       billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
       encryption: dynamodb.TableEncryption.AWS_MANAGED,
       pointInTimeRecovery: environment === 'prod',
-      removalPolicy: environment === 'prod' ? cdk.RemovalPolicy.RETAIN : cdk.RemovalPolicy.DESTROY,
+      removalPolicy:
+        environment === 'prod'
+          ? cdk.RemovalPolicy.RETAIN
+          : cdk.RemovalPolicy.DESTROY,
     });
 
     // Add GSI for product type lookup
@@ -267,12 +229,13 @@ export class LinuoAwsTemplateStack extends cdk.Stack {
         DYNAMODB_TABLE_PREFIX: `${baseName}-${environment}`,
 
         // JWT Configuration
-        JWT_SECRET: environment === 'prod' ? 'CHANGE_THIS_IN_PRODUCTION' : 'dev-secret-key',
+        JWT_SECRET:
+          environment === 'prod'
+            ? 'CHANGE_THIS_IN_PRODUCTION'
+            : 'dev-secret-key',
         JWT_EXPIRES_IN: '24h',
 
         // Database Configuration
-        DB_TABLE_USERS: this.usersTable.tableName,
-        DB_TABLE_CUSTOMERS: this.customersTable.tableName,
         DB_TABLE_PRODUCTS: this.productsTable.tableName,
         // Note: legacy tables removed (trades, files, customer-product-transactions)
 
@@ -286,8 +249,6 @@ export class LinuoAwsTemplateStack extends cdk.Stack {
 
     // Grant permissions to Lambda
     this.importExportBucket.grantReadWrite(this.apiLambda);
-    this.usersTable.grantReadWriteData(this.apiLambda);
-    this.customersTable.grantReadWriteData(this.apiLambda);
     this.productsTable.grantReadWriteData(this.apiLambda);
 
     // Grant Cognito permissions
@@ -371,8 +332,6 @@ export class LinuoAwsTemplateStack extends cdk.Stack {
       `JWT_EXPIRES_IN=24h`,
       ``,
       `# Database Configuration`,
-      `DB_TABLE_USERS=${this.usersTable.tableName}`,
-      `DB_TABLE_CUSTOMERS=${this.customersTable.tableName}`,
       `DB_TABLE_PRODUCTS=${this.productsTable.tableName}`,
       ``,
       `# API Configuration`,
@@ -409,7 +368,8 @@ NOTES:
 - Local development: Set AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY as environment variables
 - Never commit AWS credentials to code!
 `,
-      description: 'Ready-to-use .env file content - copy everything between the === markers',
+      description:
+        'Ready-to-use .env file content - copy everything between the === markers',
     });
 
     // EventBridge rule to ping health endpoint every 5 minutes

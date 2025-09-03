@@ -77,7 +77,7 @@ async function createNestApp() {
           scheme: 'bearer',
           bearerFormat: 'JWT',
           name: 'JWT',
-          description: 'Enter JWT token',
+          description: 'Enter Cognito Access Token',
           in: 'header',
         },
         'JWT-auth',

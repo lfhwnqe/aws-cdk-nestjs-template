@@ -117,6 +117,27 @@ export class LinuoAwsTemplateStack extends cdk.Stack {
       },
     });
 
+    // Cognito Groups to align with @Roles decorator
+    // Names must match Role enum values used in the backend guards
+    new cognito.CfnUserPoolGroup(this, 'GroupUser', {
+      groupName: 'user',
+      description: 'Standard user role',
+      precedence: 30,
+      userPoolId: this.userPool.userPoolId,
+    });
+    new cognito.CfnUserPoolGroup(this, 'GroupAdmin', {
+      groupName: 'admin',
+      description: 'Administrator role',
+      precedence: 20,
+      userPoolId: this.userPool.userPoolId,
+    });
+    new cognito.CfnUserPoolGroup(this, 'GroupSuperAdmin', {
+      groupName: 'super_admin',
+      description: 'Super administrator role',
+      precedence: 10,
+      userPoolId: this.userPool.userPoolId,
+    });
+
     // DynamoDB Tables
     this.usersTable = new dynamodb.Table(this, 'UsersTable', {
       tableName: `${baseName}-${environment}-users`,
@@ -278,6 +299,8 @@ export class LinuoAwsTemplateStack extends cdk.Stack {
           'cognito-idp:AdminDeleteUser',
           'cognito-idp:AdminGetUser',
           'cognito-idp:AdminListGroupsForUser',
+          'cognito-idp:AdminAddUserToGroup',
+          'cognito-idp:AdminRemoveUserFromGroup',
           'cognito-idp:AdminSetUserPassword',
           'cognito-idp:AdminUpdateUserAttributes',
           'cognito-idp:ListUsers',

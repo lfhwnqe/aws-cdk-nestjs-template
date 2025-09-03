@@ -5,13 +5,18 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { Reflector } from '@nestjs/core';
 import { CognitoJwtVerifier } from 'aws-jwt-verify';
+import { IS_PUBLIC_KEY } from '../../common/decorators/public.decorator';
 
 @Injectable()
 export class CognitoJwtAuthGuard implements CanActivate {
   private readonly verifier: ReturnType<typeof CognitoJwtVerifier.create>;
 
-  constructor(private readonly configService: ConfigService) {
+  constructor(
+    private readonly configService: ConfigService,
+    private readonly reflector: Reflector,
+  ) {
     const userPoolId = this.configService.get<string>('cognito.userPoolId');
     const clientId = this.configService.get<string>('cognito.clientId');
     if (!userPoolId || !clientId) {
@@ -25,7 +30,24 @@ export class CognitoJwtAuthGuard implements CanActivate {
   }
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
+    const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [
+      context.getHandler(),
+      context.getClass(),
+    ]);
+    if (isPublic) return true;
+
     const request = context.switchToHttp().getRequest();
+    const method: string = request.method || '';
+    const path: string = (request.originalUrl || request.url || '').toString();
+
+    // Allow Swagger and CORS preflight without decoration
+    if (
+      method === 'OPTIONS' ||
+      /(^|\/)docs(\/|$)/.test(path) ||
+      /(^|\/)docs-json$/.test(path)
+    ) {
+      return true;
+    }
     const auth =
       request.headers['authorization'] || request.headers['Authorization'];
     if (!auth || typeof auth !== 'string') {

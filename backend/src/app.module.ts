@@ -1,9 +1,5 @@
-import {
-  Module,
-  NestModule,
-  MiddlewareConsumer,
-  RequestMethod,
-} from '@nestjs/common';
+import { Module } from '@nestjs/common';
+import { APP_GUARD } from '@nestjs/core';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
 
@@ -15,7 +11,7 @@ import { ProductModule } from './modules/product/product.module';
 import { DatabaseModule } from './database/database.module';
 import { SharedModule } from './shared/shared.module';
 import { ImportExportModule } from './modules/import-export/import-export.module';
-import { AuthMiddleware } from './auth/middleware/auth.middleware';
+import { CognitoJwtAuthGuard } from './auth/guards/cognito-jwt.guard';
 import configuration from './config/configuration';
 
 @Module({
@@ -44,32 +40,12 @@ import configuration from './config/configuration';
     ProductModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [
+    AppService,
+    {
+      provide: APP_GUARD,
+      useClass: CognitoJwtAuthGuard,
+    },
+  ],
 })
-export class AppModule implements NestModule {
-  configure(consumer: MiddlewareConsumer) {
-    consumer
-      .apply(AuthMiddleware)
-      .exclude(
-        // 认证相关路由
-        { path: 'auth/login', method: RequestMethod.POST },
-        { path: 'auth/register', method: RequestMethod.POST },
-        { path: 'auth/verify-registration', method: RequestMethod.POST },
-        // 应用基础路由
-        { path: '', method: RequestMethod.GET },
-        { path: 'health', method: RequestMethod.GET },
-        // API 文档路由
-        { path: 'docs', method: RequestMethod.GET },
-        { path: 'docs/(.*)', method: RequestMethod.GET },
-        // 如果有 svg-parser 相关路由，可以在这里添加
-        // { path: 'svg-parser/parse', method: RequestMethod.POST },
-        // { path: 'svg-parser/parse-string', method: RequestMethod.POST },
-        // { path: 'svg-parser/parse-url', method: RequestMethod.POST },
-        // { path: 'svg-parser/parse-file', method: RequestMethod.POST },
-        // { path: 'svg-parser/validate', method: RequestMethod.POST },
-        // 如果有 mindmap 相关路由，可以在这里添加
-        // { path: 'mindmap', method: RequestMethod.GET },
-      )
-      .forRoutes('*');
-  }
-}
+export class AppModule {}

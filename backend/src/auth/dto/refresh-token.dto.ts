@@ -12,4 +12,3 @@ export class RefreshTokenDto {
   @IsNotEmpty()
   username: string;
 }
-

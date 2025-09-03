@@ -57,7 +57,8 @@ export class AuthController {
     let assignRole: Role = Role.USER;
     try {
       const listRes = await this.cognitoService.listUsers(1);
-      const hasAnyUser = Array.isArray(listRes.Users) && listRes.Users.length > 0;
+      const hasAnyUser =
+        Array.isArray(listRes.Users) && listRes.Users.length > 0;
       assignRole = hasAnyUser ? Role.USER : Role.SUPER_ADMIN;
       this.logger.log(
         `Register flow role decision => hasAnyUser=${hasAnyUser}, assignRole=${assignRole}`,

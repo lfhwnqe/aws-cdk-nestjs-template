@@ -18,6 +18,7 @@ import { CognitoService } from '../shared/services/cognito.service';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { VerifyRegistrationDto } from './dto/verify-registration.dto';
+import { Role } from '../common/decorators/roles.decorator';
 
 @Injectable()
 export class AuthService {
@@ -187,6 +188,23 @@ export class AuthService {
         '用户名不能为邮箱格式（当前用户池启用了 email 作为别名）。请使用非邮箱的用户名，邮箱请填写在 email 字段。',
       );
     }
+    // 规则：
+    // - 第一个注册的用户默认授予 SUPER_ADMIN，并加入 super_admin 组
+    // - 其他用户默认授予 USER，并加入 user 组
+    let assignRole: Role = Role.USER;
+    try {
+      const listRes = await this.cognitoService.listUsers(1);
+      const hasAnyUser = Array.isArray(listRes.Users) && listRes.Users.length > 0;
+      assignRole = hasAnyUser ? Role.USER : Role.SUPER_ADMIN;
+      this.logger.log(
+        `Register flow role decision => hasAnyUser=${hasAnyUser}, assignRole=${assignRole}`,
+      );
+    } catch (e) {
+      this.logger.warn(
+        `ListUsers failed, fallback to USER role. reason=${String((e as any)?.name || e)}`,
+      );
+    }
+
     try {
       const res = await this.cognitoService.signUp(
         username,
@@ -195,11 +213,39 @@ export class AuthService {
         firstName,
         lastName,
       );
+
+      // 注册成功后，尽力设置自定义属性并加入相应的组（不阻断注册流程）
+      try {
+        await this.cognitoService.updateUserAttributes(username, [
+          { Name: 'custom:role', Value: assignRole },
+        ]);
+        this.logger.log(
+          `Set user role success => username=${username}, role=${assignRole}`,
+        );
+      } catch (e) {
+        this.logger.error(
+          `Failed to set user role for ${username}: ${String((e as any)?.name || e)}`,
+        );
+      }
+
+      try {
+        const groupName = assignRole === Role.SUPER_ADMIN ? Role.SUPER_ADMIN : Role.USER;
+        await this.cognitoService.adminAddUserToGroup(username, groupName);
+        this.logger.log(
+          `Added user to Cognito group => username=${username}, group=${groupName}`,
+        );
+      } catch (e) {
+        this.logger.error(
+          `Failed to add user ${username} to group: ${String((e as any)?.name || e)}`,
+        );
+      }
+
       return {
         userSub: res.UserSub,
         message:
           'Registration successful. Please check your email for verification code.',
         requiresVerification: true,
+        assignedRole: assignRole,
       };
     } catch (error) {
       const name = (error && (error.name || (error as any).__type)) || '';

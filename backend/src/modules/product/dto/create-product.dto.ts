@@ -8,7 +8,11 @@ import {
   Min,
   Max,
 } from 'class-validator';
-import { ProductType, ProductStatus, RiskLevel } from '../entities/product.entity';
+import {
+  ProductType,
+  ProductStatus,
+  RiskLevel,
+} from '../entities/product.entity';
 
 export class CreateProductDto {
   @ApiProperty({ description: '产品名称', example: '稳健理财产品' })

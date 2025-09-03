@@ -18,17 +18,29 @@ if ! command -v node >/dev/null 2>&1; then
   fi
 fi
 
-# Run formatting via workspaces when available; fallback to direct prettier
-if command -v yarn >/dev/null 2>&1; then
-  # Use workspace scripts so each package formats its own files
-  yarn format || true
-elif command -v npm >/dev/null 2>&1; then
-  npm run format || true
-elif [ -x "./node_modules/.bin/prettier" ]; then
-  # Fallback: try common globs at repo root; ignore unmatched patterns
-  ./node_modules/.bin/prettier --no-error-on-unmatched-pattern --write \
-    "src/**/*.ts" "test/**/*.ts" \
-    "backend/src/**/*.ts" "backend/test/**/*.ts" || true
+# Find prettier binary (prefer workspace install)
+if [ -x "./node_modules/.bin/prettier" ]; then
+  PRETTIER="./node_modules/.bin/prettier"
+elif command -v prettier >/dev/null 2>&1; then
+  PRETTIER="$(command -v prettier)"
 else
   echo "[husky] prettier not found; skipping format"
+  exit 0
 fi
+
+echo "[husky] formatting staged files before commit..."
+# Iterate staged files (added/copied/modified), null-delimited for safety
+git diff --cached --name-only --diff-filter=ACMR -z | \
+  while IFS= read -r -d '' file; do
+    case "$file" in
+      *.ts|*.tsx|*.js|*.jsx|*.json|*.md|*.yml|*.yaml|*.css|*.scss|*.html)
+        "$PRETTIER" --log-level warn --write "$file" || exit 1
+        git add "$file" || exit 1
+        ;;
+      *)
+        ;;
+    esac
+  done || exit 1
+
+echo "[husky] format complete"
+exit 0

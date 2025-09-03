@@ -6,7 +6,6 @@ import { JwtModule } from '@nestjs/jwt';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
-import { CustomerModule } from './modules/customer/customer.module';
 import { ProductModule } from './modules/product/product.module';
 import { DatabaseModule } from './database/database.module';
 import { SharedModule } from './shared/shared.module';
@@ -36,7 +35,6 @@ import configuration from './config/configuration';
     SharedModule,
     ImportExportModule,
     AuthModule,
-    CustomerModule,
     ProductModule,
   ],
   controllers: [AppController],

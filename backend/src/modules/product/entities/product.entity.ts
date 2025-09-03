@@ -1,5 +1,10 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { RiskLevel } from '../../customer/entities/customer.entity';
+
+export enum RiskLevel {
+  LOW = '低',
+  MEDIUM = '中',
+  HIGH = '高',
+}
 
 export enum ProductStatus {
   ACTIVE = 'active',

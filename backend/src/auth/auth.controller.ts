@@ -93,6 +93,25 @@ export class AuthController {
       );
     }
 
+    // 如果是首个用户（SUPER_ADMIN），将其加入 Cognito 对应的组（super_admin）
+    if (assignRole === Role.SUPER_ADMIN) {
+      try {
+        await this.cognitoService.adminAddUserToGroup(
+          registerDto.username,
+          Role.SUPER_ADMIN,
+        );
+        this.logger.log(
+          `Added first user to Cognito group => username=${registerDto.username}, group=${Role.SUPER_ADMIN}`,
+        );
+      } catch (e) {
+        this.logger.error(
+          `Failed to add first user to group super_admin: ${registerDto.username}. reason=${String(
+            (e as any)?.name || e,
+          )}`,
+        );
+      }
+    }
+
     return {
       ...result,
       assignedRole: assignRole,

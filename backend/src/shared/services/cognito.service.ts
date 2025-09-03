@@ -7,6 +7,7 @@ import {
   AdminGetUserCommand,
   AdminUpdateUserAttributesCommand,
   AdminDeleteUserCommand,
+  AdminAddUserToGroupCommand,
   ListUsersCommand,
   ConfirmSignUpCommand,
   SignUpCommand,
@@ -110,6 +111,18 @@ export class CognitoService {
       Username: username,
     });
 
+    return await this.cognitoClient.send(command);
+  }
+
+  async adminAddUserToGroup(
+    username: string,
+    groupName: string,
+  ): Promise<any> {
+    const command = new AdminAddUserToGroupCommand({
+      UserPoolId: this.userPoolId,
+      Username: username,
+      GroupName: groupName,
+    });
     return await this.cognitoClient.send(command);
   }
 

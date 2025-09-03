@@ -114,10 +114,7 @@ export class CognitoService {
     return await this.cognitoClient.send(command);
   }
 
-  async adminAddUserToGroup(
-    username: string,
-    groupName: string,
-  ): Promise<any> {
+  async adminAddUserToGroup(username: string, groupName: string): Promise<any> {
     const command = new AdminAddUserToGroupCommand({
       UserPoolId: this.userPoolId,
       Username: username,

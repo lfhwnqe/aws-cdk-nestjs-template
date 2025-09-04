@@ -3,7 +3,7 @@
 ## 部署命令
 
 ```bash
-cdk deploy TradeManageStack-dev
+yarn deploy:dev
 ```
 
 ## 输出示例
@@ -17,7 +17,7 @@ cdk deploy TradeManageStack-dev
 
 Outputs:
 TradeManageStack-dev.ApiEndpoint = https://a760bohec4.execute-api.ap-southeast-1.amazonaws.com/dev/
-TradeManageStack-dev.EnvFileContent = 
+TradeManageStack-dev.EnvFileContent =
 === COPY THE CONTENT BELOW TO YOUR .env FILE ===
 
 # Application Configuration
@@ -82,6 +82,7 @@ Stack ARN: arn:aws:cloudformation:ap-southeast-1:123456789012:stack/TradeManageS
 2. **粘贴到.env文件**：将复制的内容粘贴到项目根目录的`.env`文件中
 
 3. **设置AWS凭证**（仅本地开发需要）：
+
    ```bash
    export AWS_ACCESS_KEY_ID=your-access-key-id
    export AWS_SECRET_ACCESS_KEY=your-secret-access-key

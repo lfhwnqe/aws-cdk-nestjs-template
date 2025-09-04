@@ -140,6 +140,13 @@ Notes:
 
 More details and troubleshooting tips are available in the [Chinese guide](docs/项目模板使用指南.zh-CN.md). If variables look different, compare with `docs/CDK_OUTPUT_EXAMPLE.md`, but always prefer the `EnvFileContent` from current deploy logs.
 
+### Frontend Template
+
+- Repository: [aws-nextjs-amplify-template](https://github.com/lfhwnqe/aws-nextjs-amplify-template)
+- Compatibility: The frontend template matches this backend template's API responses. After you deploy the backend and paste the `EnvFileContent` into `.env` and `backend/.env`, you can start end-to-end development immediately.
+- API Base: Combine the deploy log's `ApiEndpoint` with your `API_PREFIX` (from `.env`), for example: `https://<api-id>.execute-api.<region>.amazonaws.com/dev/api/v1`.
+- CORS: Backend CORS is open by default for convenience; restrict it to trusted origins in production.
+
 ## Import/Export (S3) Quickstart
 
 - Get a presigned URL to upload an import file:

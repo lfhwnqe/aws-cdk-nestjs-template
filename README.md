@@ -26,6 +26,12 @@ This template accelerates building serverless applications with NestJS and the A
 - Basic auth flows: User registration, email verification, login, profile, and password change backed by Amazon Cognito + JWT for API protection.
 - DynamoDB integration: Pay-per-request tables with practical GSIs; table names and regions are wired via environment variables and CDK outputs.
 
+## Online Demo
+
+- URL: https://main.d3919bjo2q9c5.amplifyapp.com/
+- Test account: `linuo`
+- Test password: `Ur8Djfm6vtuf9Lc!`
+
 ## Project Structure
 
 ```

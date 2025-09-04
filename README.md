@@ -15,7 +15,7 @@ This template accelerates building serverless applications with NestJS and the A
 - **AWS CDK** infrastructure as code
 - **Serverless Stack**: API Gateway, Lambda, DynamoDB, S3, Cognito
 - **Environment-aware** configuration for dev and prod
-- **Testing & Linting** setup with Jest and ESLint
+- **Testing & Linting** via Node's test runner (`node:test`), ESLint, and Prettier
 - **Scripts** for development, building, and deploying
 
 ### Feature Highlights
@@ -29,11 +29,21 @@ This template accelerates building serverless applications with NestJS and the A
 ## Project Structure
 
 ```
-├── backend/          # NestJS application
-├── infrastructure/   # AWS CDK stacks
-├── scripts/          # Helper scripts
-├── docs/             # Documentation
-└── package.json      # Root workspace config
+├── backend/            # NestJS application (NestJS 11 + TypeScript)
+│   └── src/
+│       ├── modules/    # Feature modules (user, customer, product, ...)
+│       ├── auth/       # AuthN/AuthZ (Cognito + JWT)
+│       ├── common/     # Common utilities, interceptors, pipes, filters
+│       ├── shared/     # Cross-cutting helpers
+│       ├── config/     # App configuration (environment-aware)
+│       └── database/   # DynamoDB integration
+├── llm-lambda/         # Additional Lambda workspace (LLM example/integration)
+├── infrastructure/     # AWS CDK stacks (deploy/diff/destroy)
+├── scripts/            # Dev/build/deploy helper scripts
+├── docs/               # Documentation
+├── dist/               # Build outputs (generated)
+├── lambda-package/     # Lambda bundles (generated)
+└── package.json        # Root workspace config and scripts
 ```
 
 ## Getting Started
@@ -51,9 +61,20 @@ This template accelerates building serverless applications with NestJS and the A
 # install dependencies
 yarn      # or: npm install
 
-# copy environment variables
+# copy base env files (will be completed after deploy)
 cp .env.example .env
 yes | cp .env backend/.env
+```
+
+Important: On first run you must provision infrastructure and copy the EnvFileContent block from deployment logs into your env files before starting the app.
+
+```bash
+# provision dev infrastructure (prints Stack Outputs)
+npm run deploy:dev   # or: yarn deploy:dev
+
+# then copy the `EnvFileContent` output block from the deployment logs
+# paste it into `.env` and `backend/.env` (overwrite same-name vars)
+# tip: `ApiEndpoint` output shows the API Gateway URL for quick testing
 ```
 
 ### Development
@@ -64,7 +85,21 @@ npm run backend:start:dev
 # Swagger: http://localhost:3000/api/v1/docs
 ```
 
-### Deployment
+Alternatively, run directly in the workspace:
+
+```bash
+cd backend
+npm run start:dev
+```
+
+### Common Scripts
+
+- Build: `npm run backend:build`
+- Lambda bundle: `npm run backend:build:lambda` or `npm run build:lambda`
+- Quality: `npm run lint`, `npm run format`
+- Tests: `npm test` (Node's `node:test` in each workspace)
+
+### Deployment (CDK)
 
 ```bash
 # dev environment
@@ -74,7 +109,36 @@ npm run deploy:dev
 npm run deploy:prod
 ```
 
-More details and troubleshooting tips are available in the [Chinese guide](docs/项目模板使用指南.zh-CN.md).
+Diff and destroy helpers:
+
+```bash
+npm run cdk:diff:dev
+npm run cdk:diff:prod
+
+npm run destroy:lambda:dev
+npm run destroy:lambda:prod
+```
+
+Notes:
+
+- Scripts pass `--context environment=dev|prod` to CDK and default stack name to `linuo-aws-template-<env>`.
+- Override stack name via `--context stackName=<name>`.
+
+### Post-Deploy Verification
+
+- Use the `ApiEndpoint` printed in deploy logs to access the API Gateway URL.
+- Health: `GET {apiBase}/health`
+- Swagger (non-prod): `{apiBase}/docs`
+
+### Lambda Packaging
+
+- Entry: `backend/src/lambda.ts`
+- Webpack config: `backend/webpack.lambda.config.js`
+- Bundle script: `scripts/build-lambda.sh`
+- Output directory: `lambda-package/`
+- Tip: most deps are bundled; `swagger-ui-dist` is external and copied as static assets. Swagger is disabled in prod by env.
+
+More details and troubleshooting tips are available in the [Chinese guide](docs/项目模板使用指南.zh-CN.md). If variables look different, compare with `docs/CDK_OUTPUT_EXAMPLE.md`, but always prefer the `EnvFileContent` from current deploy logs.
 
 ## Import/Export (S3) Quickstart
 
@@ -86,7 +150,15 @@ More details and troubleshooting tips are available in the [Chinese guide](docs/
 - Import from S3 key (server-side):
   - POST `{apiBase}/customers/imports/s3` or `{apiBase}/products/imports/s3` with `{ key }`.
 
-Environment variables are populated by CDK stack outputs (e.g., `S3_IMPORT_EXPORT_BUCKET_NAME`). See the Chinese guide for details.
+Environment variables come from the CDK deploy logs: copy the `EnvFileContent` block into `.env` and `backend/.env` (includes `S3_IMPORT_EXPORT_BUCKET_NAME`, Cognito, DynamoDB, regions, etc.).
+
+### Troubleshooting
+
+- AWS credentials missing: run `aws configure` or export `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` locally.
+- First-time CDK bootstrap: `cd infrastructure && cdk bootstrap`.
+- Port in use: adjust `PORT` in `backend/.env` or free port 3000.
+- Swagger not available in prod: by design; disabled in production.
+- Auth 401/403: check Cognito and JWT-related env vars; try public health endpoint first.
 
 ## Contributing
 

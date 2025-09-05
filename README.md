@@ -9,6 +9,14 @@
 
 This template accelerates building serverless applications with NestJS and the AWS Cloud Development Kit (CDK). It bundles a ready-to-use architecture featuring API Gateway + Lambda, DynamoDB, S3, and Cognito so you can focus on business logic instead of boilerplate infrastructure.
 
+## Why Serverless (CDK + Lambda)
+
+This stack uses AWS CDK to provision a fully managed Serverless backend on AWS Lambda behind API Gateway.
+
+- Cost efficiency: pay-per-request billing drastically reduces idle cost and overall spend.
+- Auto-scaling stability: Lambda scales automatically with traffic, keeping the system stable without pre-provisioning or scale-up overhead.
+- Operational simplicity: no servers to manage; consistent IaC deployments with versioning, repeatability, and easy rollbacks.
+
 ## Features
 
 - **NestJS** framework with TypeScript

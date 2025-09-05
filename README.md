@@ -26,6 +26,58 @@ This stack uses AWS CDK to provision a fully managed Serverless backend on AWS L
 - **Testing & Linting** via Node's test runner (`node:test`), ESLint, and Prettier
 - **Scripts** for development, building, and deploying
 
+## Architecture Overview
+
+```mermaid
+flowchart LR
+  client[Frontend Client]
+
+  subgraph AWS[AWS Cloud]
+    apigw[API Gateway]
+    lambda_app[NestJS Application Lambda]
+    ddb[DynamoDB Products Table]
+    s3[S3 Import/Export Bucket]
+    cognito[Cognito User Pool + Client]
+    evb[EventBridge Keep-warm Health Check]
+  end
+
+  subgraph CDK[CDK Stack]
+    cdkstack[CDK Deployment and Env Var Injection]
+  end
+
+  subgraph APP[Application Modules]
+    mod_auth[AuthModule]
+    mod_product[ProductModule]
+    mod_impexp[ImportExportModule]
+    mod_shared[SharedModule]
+    mod_db[DatabaseModule]
+  end
+
+  client -->|HTTPS| apigw
+  apigw --> lambda_app
+  evb --> apigw
+
+  lambda_app --> mod_auth
+  lambda_app --> mod_product
+  lambda_app --> mod_impexp
+  lambda_app --> mod_shared
+  lambda_app --> mod_db
+
+  mod_auth --> cognito
+  mod_product --> ddb
+  mod_impexp --> s3
+  mod_shared --> cognito
+  mod_shared --> s3
+  mod_db --> ddb
+
+  cdkstack -.-> apigw
+  cdkstack -.-> lambda_app
+  cdkstack -.-> ddb
+  cdkstack -.-> s3
+  cdkstack -.-> cognito
+  cdkstack -.-> evb
+```
+
 ### Feature Highlights
 
 - Import/Export module (S3-based): Generate presigned URLs for uploads, export data to S3 and return short-lived download links (CSV/Excel flows supported by service layer).
